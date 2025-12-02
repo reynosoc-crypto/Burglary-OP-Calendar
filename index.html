@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Burglary OP Sign Up Sheet</title>
+    <style>
+        body{font-family:Arial,sans-serif;background:#0d0d0d;color:#e0e0e0;margin:0;padding:20px;line-height:1.6}
+        h1{text-align:center;color:#ff5555;margin:20px 0 40px;font-size:2.5em}
+        .date{margin:30px 0;padding:20px;background:#1a1a1a;border-radius:12px;border:1px solid #333}
+        .date h3{color:#55ffbb;font-size:1.4em;margin:0 0 15px}
+        .slots div{background:#252525;padding:12px;margin:8px 0;border-radius:8px;display:flex;justify-content:space-between;align-items:center}
+        .slots button{background:#ff5555;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer}
+        .slots button:hover{background:#ff3333}
+        form{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;margin-top:15px}
+        input, button{padding:10px;border-radius:6px;border:none;background:#333;color:white}
+        button{background:#55ffbb;color:black;font-weight:bold}
+        button:hover{background:#44ddaa}
+        @media(max-width:800px){form{grid-template-columns:1fr}}
+        #export{margin:30px auto;display:block;padding:15px 30px;font-size:1.2em}
+    </style>
+</head>
+<body>
+    <h1>Burglary OP Sign Up Sheet</h1>
+    <button id="export">Export All as CSV</button>
+    <div id="calendar"></div>
+
+<script>
+// Only Wednesdays and Thursdays 2026
+const wedThu2026 = [];
+const start = new Date('2026-01-01');
+const end = new Date('2026-12-31');
+for (let d = start; d <= end; d.setDate(d.getDate() + 1)) {
+    if (d.getDay() === 3 || d.getDay() === 4) wedThu2026.push(d.toISOString().split('T')[0]);
+}
+
+const STORAGE_KEY = 'burglary2026';
+function getData(){return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}
+function saveData(d){localStorage.setItem(STORAGE_KEY,JSON.stringify(d))}
+
+function render(){
+    const data = getData();
+    let html = '';
+    wedThu2026.forEach(date=>{
+        const pretty = new Date(date).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+        html += `<div class="date"><h3>${pretty}</h3><div class="slots">`;
+        (data[date]||[]).forEach((s,i)=>{
+            html += `<div><strong>${s.name}</strong> — ${s.phone} — ${s.start}–${s.end}
+                     <button onclick="edit('${date}',${i})">Edit</button>
+                     <button onclick="del('${date}',${i})">Delete</button></div>`;
+        });
+        html += `</div>
+        <form onsubmit="add(event,'${date}')">
+            <input placeholder="Name" required>
+            <input placeholder="Phone" required>
+            <input type="time" required>
+            <input type="time" required>
+            <button type="submit">Sign Up</button>
+        </form></div>`;
+    });
+    document.getElementById('calendar').innerHTML = html;
+}
+
+window.add = function(e,date){
+    e.preventDefault();
+    const inputs = e.target.querySelectorAll('input');
+    const [name,phone,start,end] = Array.from(inputs).map(i=>i.value.trim());
+    if (end <= start){alert("End time must be after start");return}
+    const data = getData();
+    data[date] = data[date] || [];
+    data[date].push({name,phone,start,end});
+    saveData(data);
+    inputs.forEach(i=>i.value='');
+    render();
+}
+
+window.edit = function(date,i){
+    const data = getData();
+    const s = data[date][i];
+    const n = prompt("Name",s.name);
+    const p = prompt("Phone",s.phone);
+    const st = prompt("Start time (HH:MM)",s.start);
+    const en = prompt("End time (HH:MM)",s.end);
+    if(n&&p&&st&&en&&en>st){data[date][i]={name:n,phone:p,start:st,end:en};saveData(data);render()}
+}
+
+window.del = function(date,i){
+    if(confirm("Delete this slot?")){
+        const data = getData();
+        data[date].splice(i,1);
+        if(data[date].length===0)delete data[date];
+        saveData(data);render();
+    }
+}
+
+document.getElementById('export').onclick = ()=>{
+    const data = getData();
+    let csv = "Date,Name,Phone,Start,End\n";
+    Object.keys(data).forEach(date=>{
+        data[date].forEach(s=>{
+            csv += `${date},${s.name},${s.phone},${s.start},${s.end}\n`;
+        });
+    });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download = 'burglary-ops-2026.csv';
+    a.click();
+}
+
+render();
+</script>
+</body>
+</html>
